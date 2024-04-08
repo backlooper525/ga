@@ -1,0 +1,133 @@
+import pandas as pd
+import yfinance as yf
+import sys
+
+account_balance = 10000  # Algkonto
+data = None
+alg = None
+lopp = None
+
+
+def download(symbol):
+    datafile = symbol + 'data.txt'
+    stockdata = yf.download(symbol, start='2010-03-10', end='2024-03-10')
+    stockdata.to_csv(datafile, index=True, sep='\t')
+
+# download("MU")
+# sys.exit()
+
+def read(symbol):
+    global data, alg, lopp
+    datafile = symbol + 'data.txt'
+    # Loe data txtfailist datafreimi
+    data = pd.read_csv(datafile, delimiter="\t")
+
+    alg = int(len(data)*0)
+    lopp = int(len(data)*1)-1
+    
+    # Arvuta libisevad keskmised
+    data['MA10'] = data['Close'].rolling(window=10).mean()
+    data['MA20'] = data['Close'].rolling(window=20).mean()
+    data['MA50'] = data['Close'].rolling(window=50).mean()
+    data['MA100'] = data['Close'].rolling(window=100).mean()
+
+
+
+def trade(ind, data): 
+    elem = ind.split(',')
+    account_balance = 10000
+    commission = 2  # edasi-tagasi
+    pos = False
+    size = 0
+    trades = 0
+       
+    alg = int(len(data)*0)
+    lopp = int(len(data)*1)-1
+
+    #sys.exit
+    #for index, row in data.iterrows():
+    # Luubi l2bi iga datarea
+    for index, row in data.iloc[alg:lopp].iterrows():    
+        # Entry condition. Kui close on suurem x arvust
+        if elem[4] == '+':           
+            if  row['Close'] > row[elem[0]] * (1 + float(elem[1])) and not pos:   
+        
+                entry_price = row['Close']
+                size = account_balance/entry_price
+                pos = True
+                trades +=1
+                entry_date = row['Date']
+        else:    # Entry condition. Kui close on suurem x arvust    
+            if  row['Close'] < row[elem[0]] * (1 + float(elem[1])) and not pos:   
+                entry_price = row['Close']
+                size = account_balance/entry_price
+                pos = True
+                trades +=1
+                entry_date = row['Date']
+        
+        
+        if elem[5] == '-':     # Exit condition. Kui close on v2iksem x arvust                       
+            # Exit condition
+            if row['Close'] < row[elem[2]] * (1 + float(elem[3])) and pos:           
+                exit_price = row['Close']
+                pnl = (exit_price - entry_price) * size  # Profit or loss per share
+                position_pnl = pnl - commission  # Adjust for commission
+                #print(entry_date + " " + str(position_pnl))
+                pos = False
+                # Update account balance
+                account_balance += position_pnl
+        else:
+            if row['Close'] > row[elem[2]] * (1 + float(elem[3])) and pos:           
+                exit_price = row['Close']
+                pnl = (exit_price - entry_price) * size  # Profit or loss per share
+                position_pnl = pnl - commission  # Adjust for commission
+                #print(entry_date + " " + str(position_pnl))
+                pos = False
+                # Update account balance
+                account_balance += position_pnl
+               
+        #    Ilma < > operaatorita
+        # if  row['Close'] < row[elem[0]] * (1 + float(elem[1])) and not pos:   
+        #         entry_price = row['Close']
+        #         size = account_balance/entry_price
+        #         pos = True
+        #         trades +=1
+        #         entry_date = row['Date']
+        #
+        #
+        #     # Exit condition
+        # if row['Close'] > row[elem[2]] * (1 + float(elem[3])) and pos:           
+        #         exit_price = row['Close']
+        #         pnl = (exit_price - entry_price) * size  # Profit or loss per share
+        #         position_pnl = pnl - commission  # Adjust for commission
+        #         #print(entry_date + " " + str(position_pnl))
+        #         pos = False
+        #         # Update account balance
+        #         account_balance += position_pnl
+          
+            
+                
+     
+    # Sulge positsioon, kui viimane rida
+    if pos:
+        exit_price = data.iloc[lopp]['Close']
+        pnl = (exit_price - entry_price) * size
+        position_pnl = pnl - commission
+        # Update account balance
+        account_balance += position_pnl
+        pos = False
+
+    #print(trades)
+    #print(ind)
+    return account_balance
+             
+    # Buy and hold kasum
+def buynhold(close_prices):
+    global alg, lopp
+    initial_price = close_prices.iloc[alg]
+    final_price = close_prices.iloc[lopp]
+    return (final_price/initial_price) * account_balance
+
+# read('MU')
+# print(buynhold(data['Close']))
+# print(trade('MA20,-0.01,MA20,0.05,-,+', data))
